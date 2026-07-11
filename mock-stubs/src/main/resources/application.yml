@@ -1,0 +1,20 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: iot-notification-service
+
+  cloud:
+    nacos:
+      discovery:
+        enabled: false                # 无 Nacos 时关闭
+        server-addr: localhost:8848
+        group: IOT_GROUP
+        weight: 100
+
+logging:
+  level:
+    com.iot.mock.notification: debug
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'

@@ -1,0 +1,96 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: iot-gateway
+
+  main:
+    web-application-type: reactive    # Gateway 必须使用 Reactive（WebFlux）
+
+  cloud:
+    # ============ Nacos 服务发现 ============
+    nacos:
+      discovery:
+        enabled: false                # 无 Nacos 时关闭，生产环境设为 true
+        server-addr: localhost:8848
+        group: IOT_GROUP
+        weight: 100
+
+    # ============ Gateway 路由配置 ============
+    gateway:
+      discovery:
+        locator:
+          enabled: false              # 无Nacos时关闭，有Nacos时开启
+
+      routes:
+        # 通知服务 — 必须在 /api/** 之前，否则被吞掉
+        - id: iot-notification-api
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/notification/**
+          filters:
+            - StripPrefix=0
+
+        # 后端 IoT 核心服务
+        - id: iot-backend-api
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/**
+          filters:
+            - StripPrefix=0
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 200
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@ipKeyResolver}"
+
+      # 全局跨域配置（生产环境应限制为具体域名白名单）
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "http://localhost:*,http://127.0.0.1:*"
+            allowedMethods: GET,POST,PUT,DELETE,OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+    # ============ Sentinel 配置 ============
+    sentinel:
+      transport:
+        dashboard: localhost:8080      # Sentinel Dashboard
+        port: 8719
+      eager: true
+      # 网关流控规则
+      scg:
+        fallback:
+          mode: response               # 限流后返回 JSON
+          response-status: 429
+          response-body: '{"code":429,"message":"系统繁忙，请稍后再试"}'
+
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 20
+        max-idle: 10
+
+# ============ Actuator ============
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.iot.gateway: debug
+    org.springframework.cloud.gateway: info
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'

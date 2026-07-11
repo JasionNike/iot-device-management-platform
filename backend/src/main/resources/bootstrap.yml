@@ -1,0 +1,57 @@
+# ============================================================
+# Nacos 配置引导（bootstrap.yml 优先级高于 application.yml）
+# 若本地无 Nacos Server，可设置 spring.cloud.nacos.discovery.enabled=false
+# 系统将自动降级为本地配置模式
+# ============================================================
+
+spring:
+  application:
+    name: iot-platform-service
+
+  cloud:
+    nacos:
+      # ---- 服务注册与发现 ----
+      discovery:
+        enabled: false           # 无Nacos时设为false降级，有Nacos时改为true
+        server-addr: localhost:8848
+        namespace:               # 命名空间ID（public命名空间留空）
+        group: IOT_GROUP
+        weight: 100              # 权重，金丝雀发布时调低新实例权重
+        heart-beat-interval: 5000
+        heart-beat-timeout: 15000
+        ip-delete-timeout: 30000
+        metadata:
+          version: 1.0.0
+          region: xi'an
+
+      # ---- 配置中心（支持热刷新） ----
+      config:
+        enabled: false           # 无Nacos时设为false降级，有Nacos时改为true
+        server-addr: localhost:8848
+        namespace:               # 命名空间ID（public命名空间留空）
+        group: IOT_GROUP
+        file-extension: yaml
+        refresh-enabled: true    # 开启配置热刷新，无需重启
+        timeout: 5000
+        shared-configs:
+          - data-id: iot-common.yaml
+            group: IOT_GROUP
+            refresh: true        # 业务参数变更自动刷新
+
+    # ---- Sentinel 控制台 ----
+    sentinel:
+      transport:
+        dashboard: localhost:8080    # Sentinel Dashboard 地址
+        port: 8719                   # 与 Dashboard 通信端口
+      # 提前加载 Sentinel 规则（否则首次调用才初始化）
+      eager: true
+      # Sentinel 数据源：规则持久化到 Nacos
+      datasource:
+        ds-flow:
+          nacos:
+            server-addr: localhost:8848
+            namespace:              # 命名空间ID
+            group-id: IOT_GROUP
+            data-id: iot-platform-service-flow-rules.json
+            data-type: json
+            rule-type: flow

@@ -1,0 +1,95 @@
+# ============================================================
+# 智能物联设备管理平台 — CI/CD Pipeline
+# ============================================================
+# 触发条件: push到main分支 / PR到main
+# 流程: 编译 → 测试 → 构建Docker镜像 → 部署到阿里云
+# ============================================================
+
+name: IoT Platform CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  ALIYUN_HOST: 47.108.86.221
+  ALIYUN_USER: root
+  DOCKER_REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  DOCKER_NAMESPACE: iot-platform
+
+jobs:
+  # ========== 1. 编译 + 单元测试 ==========
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests=false -q
+        env:
+          JASYPT_ENCRYPTOR_PASSWORD: iot-platform-jasypt-key
+
+      - name: Run Unit Tests
+        run: mvn test
+        env:
+          JASYPT_ENCRYPTOR_PASSWORD: iot-platform-jasypt-key
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/target/surefire-reports/*.xml'
+
+  # ========== 2. Docker 构建 + 推送 ==========
+  docker-build:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build JAR
+        run: mvn clean package -DskipTests -q
+
+      - name: Build Docker image
+        run: |
+          docker build -t iot-backend:latest .
+          docker tag iot-backend:latest $DOCKER_REGISTRY/$DOCKER_NAMESPACE/iot-backend:${{ github.sha }}
+
+  # ========== 3. 部署到阿里云 ==========
+  deploy:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Deploy to Aliyun ECS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.ALIYUN_HOST }}
+          username: ${{ env.ALIYUN_USER }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          script: |
+            cd /opt/iot-platform
+            docker-compose down
+            docker-compose pull
+            docker-compose up -d
+            echo "Deploy completed at $(date)"

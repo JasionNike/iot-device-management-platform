@@ -1,0 +1,113 @@
+version: '3.8'
+
+# ============================================================
+# 智能物联设备管理平台 — Docker Compose 容器化部署
+# ============================================================
+# 启动: docker-compose up -d
+# 停止: docker-compose down
+# 日志: docker-compose logs -f backend
+# ============================================================
+
+services:
+  # ========== MySQL 8.0 ==========
+  mysql:
+    image: mysql:8.0
+    container_name: iot-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: iot_platform
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./sql/data.sql:/docker-entrypoint-initdb.d/02-data.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== Redis 5.0 ==========
+  redis:
+    image: redis:5.0-alpine
+    container_name: iot-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ========== RabbitMQ 3.12 ==========
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: iot-rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== IoT Backend (:8081) ==========
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iot-backend
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/iot_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_REDIS_HOST: redis
+      SPRING_RABBITMQ_HOST: rabbitmq
+      JASYPT_ENCRYPTOR_PASSWORD: iot-platform-jasypt-key
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ========== Notification Stub (:8082) ==========
+  notification:
+    build:
+      context: ./mock-stubs
+      dockerfile: ../Dockerfile.notification
+    container_name: iot-notification
+    restart: always
+    ports:
+      - "8082:8082"
+    depends_on:
+      - backend
+
+  # ========== Gateway (:8080) ==========
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: ../Dockerfile.gateway
+    container_name: iot-gateway
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_REDIS_HOST: redis
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:

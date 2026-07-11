@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>智能物联设备管理平台</title>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.14/lib/index.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.15.14/lib/theme-chalk/index.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#f0f2f5}
+/* 登录页 */
+.login-page{display:flex;justify-content:center;align-items:center;min-height:100vh;background:linear-gradient(135deg,#0f1923 0%,#1a2a3a 50%,#1a3a5c 100%)}
+.login-card{background:#fff;border-radius:12px;padding:40px;width:400px;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.login-card h2{font-size:22px;color:#1a2332;margin-bottom:4px;text-align:center}
+.login-card .subtitle{font-size:13px;color:#999;text-align:center;margin-bottom:32px}
+.login-card .el-form-item{margin-bottom:24px}
+.login-card .el-button--primary{width:100%;height:42px;font-size:15px}
+/* 主应用 */
+.app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:linear-gradient(180deg,#1a2332 0%,#15202b 100%);color:#8899aa;flex-shrink:0;display:flex;flex-direction:column;transition:width .3s}
+.sidebar.collapsed{width:64px}
+.sidebar .logo{padding:20px 16px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden}
+.sidebar .logo .icon{font-size:24px;flex-shrink:0}
+.sidebar .logo .text{font-size:15px;font-weight:bold;color:#e0e0e0}
+.sidebar .nav{flex:1;padding:12px 0;overflow-y:auto}
+.sidebar .nav-item{display:flex;align-items:center;padding:12px 20px;cursor:pointer;transition:all .2s;white-space:nowrap;overflow:hidden;gap:10px;font-size:14px;border-left:3px solid transparent}
+.sidebar .nav-item:hover{background:rgba(255,255,255,.04);color:#c0ccda}
+.sidebar .nav-item.active{background:rgba(79,195,247,.1);color:#4fc3f7;border-left-color:#4fc3f7}
+.sidebar .nav-item .nav-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+.sidebar .collapse-btn{padding:12px;text-align:center;cursor:pointer;border-top:1px solid rgba(255,255,255,.06);color:#556677;font-size:18px;transition:color .2s}
+.sidebar .collapse-btn:hover{color:#8899aa}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:#fff;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;box-shadow:0 1px 4px rgba(0,0,0,.06);z-index:10;flex-shrink:0}
+.topbar .bread{font-size:14px;color:#333}
+.topbar .topbar-right{display:flex;align-items:center;gap:16px;font-size:13px;color:#666}
+.content{flex:1;padding:20px 24px;overflow-y:auto}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stat-item{background:#fff;border-radius:8px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,.06);display:flex;align-items:center;gap:16px}
+.stat-item .stat-icon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.stat-item .stat-info .val{font-size:28px;font-weight:bold;color:#1a2332}
+.stat-item .stat-info .label{font-size:13px;color:#999;margin-top:2px}
+.panel{background:#fff;border-radius:8px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.panel-header{padding:16px 20px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between}
+.panel-header h3{font-size:15px;font-weight:600;color:#333}
+.panel-body{padding:20px}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-box{width:100%;height:300px}
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px}
+.detail-grid .item{display:flex;padding:8px 0;border-bottom:1px solid #f5f5f5}
+.detail-grid .item .label{color:#999;width:90px;flex-shrink:0;font-size:13px}
+.detail-grid .item .value{color:#333;font-size:13px;word-break:break-all}
+.empty{text-align:center;padding:60px 0;color:#bbb}
+.tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px}
+.tag-online{background:#e8f5e9;color:#388e3c}
+.tag-offline{background:#ffebee;color:#d32f2f}
+.tag-p0{background:#ffebee;color:#c62828}
+.tag-p1{background:#fff3e0;color:#ef6c00}
+.tag-p2{background:#fff8e1;color:#f9a825}
+.tag-pending{background:#e3f2fd;color:#1565c0}
+.tag-resolved{background:#e8f5e9;color:#2e7d32}
+.tag-active{background:#e8f5e9;color:#388e3c}
+.tag-draft{background:#f5f5f5;color:#757575}
+.json-viewer{background:#1e1e1e;color:#d4d4d4;padding:16px;border-radius:4px;font-family:'Consolas','Courier New',monospace;font-size:13px;line-height:1.6;max-height:500px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+</style></head><body>
+
+<div id="app">
+<!-- ========== 登录页 ========== -->
+<div class="login-page" v-if="!loggedIn">
+  <div class="login-card">
+    <h2>智能物联设备管理平台</h2>
+    <div class="subtitle">IoT Device Management Platform</div>
+    <el-form ref="loginForm" :model="loginForm" :rules="loginRules" @keyup.enter.native="doLogin">
+      <el-form-item prop="username"><el-input v-model="loginForm.username" placeholder="用户名" prefix-icon="el-icon-user" size="medium"></el-input></el-form-item>
+      <el-form-item prop="password"><el-input v-model="loginForm.password" placeholder="密码" prefix-icon="el-icon-lock" type="password" size="medium" show-password></el-input></el-form-item>
+      <el-form-item><el-button type="primary" @click="doLogin" :loading="loginLoading">登 录</el-button></el-form-item>
+    </el-form>
+    <div style="text-align:center;color:#bbb;font-size:12px;margin-top:16px">演示账号: admin / admin123</div>
+    <div style="text-align:center;color:#bbb;font-size:12px;margin-top:4px">Token: iot-platform-demo-token-2024</div>
+  </div>
+</div>
+
+<!-- ========== 主应用（登录后可见） ========== -->
+<div class="app" v-if="loggedIn">
+<div class="sidebar" :class="{collapsed:sidebarCollapsed}">
+  <div class="logo"><span class="icon">&#9872;</span><span class="text" v-show="!sidebarCollapsed">IoT Platform</span></div>
+  <div class="nav">
+    <div class="nav-item" :class="{active:currentMenu==='dashboard'}" @click="switchMenu('dashboard')"><span class="nav-icon">&#128202;</span><span v-show="!sidebarCollapsed">工作台</span></div>
+    <div class="nav-item" :class="{active:currentMenu==='devices'}" @click="switchMenu('devices')"><span class="nav-icon">&#128268;</span><span v-show="!sidebarCollapsed">设备管理</span></div>
+    <div class="nav-item" :class="{active:currentMenu==='shadow'}" @click="switchMenu('shadow')"><span class="nav-icon">&#128190;</span><span v-show="!sidebarCollapsed">设备影子</span></div>
+    <div class="nav-item" :class="{active:currentMenu==='alerts'}" @click="switchMenu('alerts')"><span class="nav-icon">&#128276;</span><span v-show="!sidebarCollapsed">告警中心</span></div>
+    <div class="nav-item" :class="{active:currentMenu==='ota'}" @click="switchMenu('ota')"><span class="nav-icon">&#128230;</span><span v-show="!sidebarCollapsed">OTA升级</span></div>
+    <div class="nav-item" :class="{active:currentMenu==='monitor'}" @click="switchMenu('monitor')"><span class="nav-icon">&#128200;</span><span v-show="!sidebarCollapsed">运行监控</span></div>
+    <div class="nav-item" :class="{active:currentMenu==='products'}" @click="switchMenu('products')"><span class="nav-icon">&#128736;</span><span v-show="!sidebarCollapsed">产品管理</span></div>
+  </div>
+  <div class="collapse-btn" @click="sidebarCollapsed=!sidebarCollapsed">{{sidebarCollapsed?'▶':'◀'}}</div>
+</div>
+<div class="main">
+  <div class="topbar">
+    <div class="bread">{{pageTitle}}</div>
+    <div class="topbar-right">
+      <span>API: <b style="color:#4fc3f7">:8080</b></span>
+      <span>{{lastUpdate||'--'}}</span>
+      <el-dropdown @command="handleUserCmd"><span style="cursor:pointer;color:#4fc3f7">{{loginUser}}<i class="el-icon-arrow-down" style="margin-left:4px"></i></span>
+        <el-dropdown-menu slot="dropdown"><el-dropdown-item command="logout">退出登录</el-dropdown-item></el-dropdown-menu>
+      </el-dropdown>
+    </div>
+  </div>
+  <div class="content">
+
+<div v-show="currentMenu==='dashboard'">
+  <div class="stat-row">
+    <div class="stat-item"><div class="stat-icon" style="background:#e3f2fd;color:#1565c0">&#128268;</div><div class="stat-info"><div class="val">{{stats.totalDevices}}</div><div class="label">设备总数</div></div></div>
+    <div class="stat-item"><div class="stat-icon" style="background:#e8f5e9;color:#2e7d32">&#9989;</div><div class="stat-info"><div class="val" style="color:#2e7d32">{{stats.onlineDevices}}</div><div class="label">在线设备</div></div></div>
+    <div class="stat-item"><div class="stat-icon" style="background:#ffebee;color:#c62828">&#10060;</div><div class="stat-info"><div class="val" style="color:#c62828">{{stats.offlineDevices}}</div><div class="label">离线设备</div></div></div>
+    <div class="stat-item"><div class="stat-icon" style="background:#fff3e0;color:#ef6c00">&#9888;</div><div class="stat-info"><div class="val" style="color:#ef6c00">{{alerts.length}}</div><div class="label">待处理告警</div></div></div>
+  </div>
+  <div class="chart-grid">
+    <div class="panel"><div class="panel-header"><h3>设备类型分布</h3></div><div class="panel-body"><div id="dashTypeChart" class="chart-box"></div></div></div>
+    <div class="panel"><div class="panel-header"><h3>设备在线率趋势</h3></div><div class="panel-body"><div id="dashOnlineChart" class="chart-box"></div></div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-header"><h3>最近告警<span style="font-weight:normal;font-size:12px;color:#999;margin-left:8px">最近10条</span></h3></div>
+    <div class="panel-body">
+      <el-table :data="recentAlerts" border stripe size="small" style="width:100%">
+        <el-table-column prop="deviceId" label="设备ID" width="150"></el-table-column>
+        <el-table-column label="等级" width="80"><template slot-scope="s"><span :class="'tag tag-'+s.row.alertLevel.toLowerCase()">{{s.row.alertLevel}}</span></template></el-table-column>
+        <el-table-column prop="alertContent" label="告警内容" show-overflow-tooltip min-width="300"></el-table-column>
+        <el-table-column label="状态" width="100"><template slot-scope="s"><span :class="'tag tag-'+(s.row.handleStatus==='PENDING'?'pending':'resolved')">{{s.row.handleStatus}}</span></template></el-table-column>
+        <el-table-column prop="alertTime" label="告警时间" width="160"></el-table-column>
+      </el-table>
+    </div>
+  </div>
+</div>
+
+<div v-show="currentMenu==='devices'">
+  <div class="panel"><div class="panel-header"><h3>设备列表 (共{{devicePage.total}}台)</h3><el-button type="primary" size="small" @click="showRegDialog=true">+ 注册设备</el-button></div>
+    <div class="panel-body">
+      <div class="toolbar">
+        <el-input v-model="devFilter.keyword" placeholder="搜索设备名/SN" size="small" clearable @clear="loadDevices" @keyup.enter.native="loadDevices"></el-input>
+        <el-select v-model="devFilter.productKey" placeholder="产品型号" size="small" clearable @change="loadDevices"><el-option v-for="p in products" :key="p" :label="p" :value="p"></el-option></el-select>
+        <el-select v-model="devFilter.onlineStatus" placeholder="在线状态" size="small" clearable @change="loadDevices"><el-option label="在线" :value="1"></el-option><el-option label="离线" :value="0"></el-option></el-select>
+        <el-button size="small" type="primary" icon="el-icon-search" @click="loadDevices">查询</el-button>
+      </div>
+      <el-table :data="devices" border stripe v-loading="devLoading" size="small" style="width:100%">
+        <el-table-column prop="deviceSn" label="设备SN" width="160"></el-table-column>
+        <el-table-column prop="deviceName" label="设备名称" min-width="150"></el-table-column>
+        <el-table-column prop="productKey" label="产品型号" width="150"></el-table-column>
+        <el-table-column prop="firmwareVersion" label="固件版本" width="110"></el-table-column>
+        <el-table-column label="在线状态" width="90"><template slot-scope="s"><span :class="'tag tag-'+(s.row.onlineStatus===1?'online':'offline')">{{s.row.onlineStatus===1?'在线':'离线'}}</span></template></el-table-column>
+        <el-table-column label="操作" width="220"><template slot-scope="s"><el-button size="mini" @click="showDevDetail(s.row)">详情</el-button><el-button size="mini" type="success" @click="showDevShadow(s.row)">影子</el-button><el-button size="mini" type="warning" @click="showDevTelemetry(s.row)">遥测</el-button></template></el-table-column>
+      </el-table>
+      <el-pagination style="margin-top:16px;text-align:right" :current-page.sync="devicePage.pageNum" :page-size="devicePage.pageSize" :total="devicePage.total" @current-change="loadDevices" layout="total,prev,pager,next" small></el-pagination>
+    </div>
+  </div>
+</div>
+
+<div v-show="currentMenu==='shadow'">
+  <div class="panel"><div class="panel-header"><h3>设备影子查询</h3></div>
+    <div class="panel-body">
+      <div class="toolbar">
+        <el-input v-model="shadowDeviceId" placeholder="输入设备SN" size="small" style="width:280px" @keyup.enter.native="loadShadow"></el-input>
+        <el-button size="small" type="primary" @click="loadShadow">查询影子</el-button>
+        <span style="margin-left:16px;font-size:12px;color:#999">版本: v{{shadowData.version||0}}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" v-if="shadowData.state">
+        <div><h4 style="font-size:13px;color:#666;margin-bottom:8px">&#128204; Reported (设备上报)</h4><div class="json-viewer">{{formatJson(shadowData.state.reported)}}</div></div>
+        <div><h4 style="font-size:13px;color:#666;margin-bottom:8px">&#127919; Desired (平台期望)</h4><div class="json-viewer">{{formatJson(shadowData.state.desired)}}</div>
+          <el-input v-model="desiredInput" placeholder='{"temperature":25}' type="textarea" :rows="2" size="small" style="margin-top:8px"></el-input>
+          <el-button size="small" type="primary" style="margin-top:8px" @click="setDesired">下发期望状态</el-button></div>
+      </div>
+      <div class="empty" v-else><i class="el-icon-search"></i><p>输入设备SN查询影子文档</p></div>
+    </div>
+  </div>
+</div>
+
+<div v-show="currentMenu==='alerts'">
+  <div class="chart-grid" style="margin-bottom:16px">
+    <div class="panel"><div class="panel-header"><h3>告警等级分布</h3></div><div class="panel-body"><div id="alertLevelChart" class="chart-box"></div></div></div>
+    <div class="panel"><div class="panel-header"><h3>通知补发状态</h3></div><div class="panel-body"><div id="notifyStatusChart" class="chart-box"></div></div></div>
+  </div>
+  <div class="panel"><div class="panel-header"><h3>告警列表</h3><el-select v-model="alertFilter.handleStatus" placeholder="处理状态" size="small" clearable @change="loadAlerts" style="width:130px"><el-option label="待处理" value="PENDING"></el-option><el-option label="已处理" value="RESOLVED"></el-option></el-select></div>
+    <div class="panel-body">
+      <el-table :data="alerts" border stripe size="small" style="width:100%">
+        <el-table-column prop="alertId" label="告警ID" width="220"></el-table-column><el-table-column prop="deviceId" label="设备ID" width="150"></el-table-column>
+        <el-table-column label="等级" width="80"><template slot-scope="s"><span :class="'tag tag-'+s.row.alertLevel.toLowerCase()">{{s.row.alertLevel}}</span></template></el-table-column>
+        <el-table-column prop="alertContent" label="告警内容" show-overflow-tooltip min-width="280"></el-table-column>
+        <el-table-column prop="handleStatus" label="状态" width="100"><template slot-scope="s"><span :class="'tag tag-'+(s.row.handleStatus==='PENDING'?'pending':'resolved')">{{s.row.handleStatus}}</span></template></el-table-column>
+        <el-table-column prop="alertTime" label="告警时间" width="160"></el-table-column>
+      </el-table>
+    </div>
+  </div>
+</div>
+
+<div v-show="currentMenu==='ota'">
+  <div class="stat-row" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stat-item"><div class="stat-icon" style="background:#e3f2fd;color:#1565c0">&#128230;</div><div class="stat-info"><div class="val">{{otaFirmware.length}}</div><div class="label">固件版本</div></div></div>
+    <div class="stat-item"><div class="stat-icon" style="background:#e8f5e9;color:#2e7d32">&#9997;</div><div class="stat-info"><div class="val">{{otaStats.upgraded||0}}</div><div class="label">已升级设备</div></div></div>
+    <div class="stat-item"><div class="stat-icon" style="background:#fff3e0;color:#ef6c00">&#9203;</div><div class="stat-info"><div class="val">{{otaStats.pending||0}}</div><div class="label">待升级设备</div></div></div>
+  </div>
+  <div class="chart-grid">
+    <div class="panel"><div class="panel-header"><h3>固件版本管理</h3><el-button size="small" type="primary" @click="addFirmware">+ 上传固件</el-button></div>
+      <div class="panel-body">
+        <el-table :data="otaFirmware" border stripe size="small"><el-table-column prop="version" label="版本号" width="130"></el-table-column><el-table-column prop="productKey" label="适用产品" width="160"></el-table-column><el-table-column prop="description" label="更新说明" show-overflow-tooltip min-width="250"></el-table-column><el-table-column prop="fileSize" label="大小" width="90"><template slot-scope="s">{{(s.row.fileSize/1024).toFixed(0)}}KB</template></el-table-column><el-table-column prop="status" label="状态" width="90"><template slot-scope="s"><span :class="'tag tag-'+(s.row.status==='ACTIVE'?'active':'draft')">{{s.row.status}}</span></template></el-table-column><el-table-column label="操作" width="100"><template slot-scope="s"><el-button size="mini" @click="createOtaTask(s.row)">创建任务</el-button></template></el-table-column></el-table>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-header"><h3>升级任务</h3></div>
+      <div class="panel-body">
+        <el-table :data="otaTasks" border stripe size="small"><el-table-column prop="taskName" label="任务名称" min-width="160"></el-table-column><el-table-column prop="productKey" label="适用产品" width="150"></el-table-column><el-table-column label="灰度进度" width="160"><template slot-scope="s"><el-progress :percentage="s.row.grayPercent||0" :stroke-width="8"></el-progress></template></el-table-column><el-table-column label="状态" width="100"><template slot-scope="s"><span :class="'tag tag-'+(s.row.taskStatus==='COMPLETED'?'active':(s.row.taskStatus==='RUNNING'?'pending':'draft'))">{{s.row.taskStatus||'--'}}</span></template></el-table-column><el-table-column label="操作" width="80"><template slot-scope="s"><el-button size="mini" v-if="(s.row.grayPercent||0)<100&&s.row.taskStatus!=='COMPLETED'" @click="advanceGray(s.row)">推进</el-button></template></el-table-column><template slot="empty"><div class="empty"><i class="el-icon-info"></i><p>暂无升级任务，请先创建固件版本后点击"创建任务"</p></div></template></el-table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div v-show="currentMenu==='monitor'">
+  <div class="toolbar">
+    <el-input v-model="monitorDeviceId" placeholder="输入设备SN" size="small" style="width:280px"></el-input>
+    <el-select v-model="monitorProperty" size="small" style="width:160px"><el-option v-for="p in monitorProps" :key="p.propertyName" :label="p.propertyAlias+' ('+p.unit+')'" :value="p.propertyName"></el-option></el-select>
+    <el-button size="small" type="primary" @click="loadTelemetry">加载遥测数据</el-button>
+  </div>
+  <div class="panel"><div class="panel-header"><h3>设备遥测数据 — {{monitorDeviceId||'请选择设备'}}</h3></div><div class="panel-body"><div id="telemetryChart" class="chart-box"></div></div></div>
+  <div class="chart-grid">
+    <div class="panel"><div class="panel-header"><h3>设备类型分布</h3></div><div class="panel-body"><div id="monitorTypeChart" class="chart-box"></div></div></div>
+    <div class="panel"><div class="panel-header"><h3>固件版本统计</h3></div><div class="panel-body"><div id="monitorFirmChart" class="chart-box"></div></div></div>
+  </div>
+</div>
+
+<div v-show="currentMenu==='products'">
+  <div class="panel"><div class="panel-header"><h3>产品型号管理</h3><el-button size="small" type="primary" @click="showCreateProductDialog=true">+ 创建产品</el-button></div>
+    <div class="panel-body">
+      <el-table :data="productList" border stripe size="small"><el-table-column prop="productKey" label="产品标识" width="160"></el-table-column><el-table-column prop="productName" label="产品名称" min-width="160"></el-table-column><el-table-column prop="manufacturer" label="厂商" width="120"></el-table-column><el-table-column label="设备类型" width="100"><template slot-scope="s"><el-tag size="small" :type="s.row.deviceType==='GATEWAY'?'warning':s.row.deviceType==='CONTROLLER'?'success':s.row.deviceType==='CONSUMER'?'info':''">{{s.row.deviceType==='SENSOR'?'传感器':s.row.deviceType==='GATEWAY'?'网关':s.row.deviceType==='CONTROLLER'?'控制器':'消费电子'}}</el-tag></template></el-table-column><el-table-column prop="protocol" label="协议" width="80"></el-table-column><el-table-column prop="description" label="描述" min-width="140" show-overflow-tooltip></el-table-column><el-table-column label="操作" width="280"><template slot-scope="s"><el-button size="mini" @click="viewProduct(s.row)">能力模型</el-button><el-button size="mini" type="warning" @click="showEditProduct(s.row)">编辑</el-button><el-button size="mini" type="danger" @click="deleteProduct(s.row.productKey)">删除</el-button></template></el-table-column></el-table>
+    </div>
+  </div>
+</div>
+
+</div></div></div>
+
+<el-dialog title="设备详情" :visible.sync="devDetailVisible" width="650px">
+  <div class="detail-grid" v-if="currentDevice"><div class="item"><span class="label">设备名称</span><span class="value">{{currentDevice.deviceName}}</span></div><div class="item"><span class="label">设备SN</span><span class="value">{{currentDevice.deviceSn}}</span></div><div class="item"><span class="label">设备ID</span><span class="value" style="font-size:11px">{{currentDevice.deviceId}}</span></div><div class="item"><span class="label">产品型号</span><span class="value">{{currentDevice.productKey}}</span></div><div class="item"><span class="label">固件版本</span><span class="value">{{currentDevice.firmwareVersion}}</span></div><div class="item"><span class="label">在线状态</span><span class="value"><span :class="'tag tag-'+(currentDevice.onlineStatus===1?'online':'offline')">{{currentDevice.onlineStatus===1?'在线':'离线'}}</span></span></div><div class="item"><span class="label">部署位置</span><span class="value">{{currentDevice.location||'未设置'}}</span></div><div class="item"><span class="label">注册时间</span><span class="value">{{currentDevice.registerTime}}</span></div></div>
+</el-dialog>
+
+<el-dialog title="设备影子" :visible.sync="shadowDialogVisible" width="700px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><h4 style="font-size:13px;margin-bottom:8px">Reported</h4><div class="json-viewer" style="max-height:400px">{{shadowDialogJson.reported||'{}'}}</div></div><div><h4 style="font-size:13px;margin-bottom:8px">Desired</h4><div class="json-viewer" style="max-height:400px">{{shadowDialogJson.desired||'{}'}}</div></div></div>
+</el-dialog>
+
+<el-dialog title="遥测历史" :visible.sync="telemetryDialogVisible" width="750px" @opened="loadTelemetryDialog">
+  <div class="toolbar"><span style="font-size:12px;color:#999;margin-right:8px">{{telemetryDeviceId}}</span><el-select v-model="telemetryProperty" size="small" style="width:160px" @change="loadTelemetryDialog"><el-option v-for="p in telemetryProps" :key="p.propertyName" :label="p.propertyAlias+' ('+p.unit+')'" :value="p.propertyName"></el-option></el-select><el-button size="small" type="primary" @click="loadTelemetryDialog">查询</el-button></div>
+  <div id="dialogTelemetryChart" style="width:100%;height:350px"></div>
+</el-dialog>
+
+<el-dialog title="注册设备" :visible.sync="showRegDialog" width="480px">
+  <el-form :model="regForm" label-width="90px" size="small"><el-form-item label="设备名称"><el-input v-model="regForm.deviceName"></el-input></el-form-item><el-form-item label="产品型号"><el-select v-model="regForm.productKey" style="width:100%"><el-option v-for="p in products" :key="p" :label="p" :value="p"></el-option></el-select></el-form-item><el-form-item label="设备SN"><el-input v-model="regForm.deviceSn"></el-input></el-form-item><el-form-item label="部署位置"><el-input v-model="regForm.location"></el-input></el-form-item></el-form>
+  <span slot="footer"><el-button @click="showRegDialog=false">取消</el-button><el-button type="primary" @click="doRegister">确认注册</el-button></span>
+</el-dialog>
+
+<el-dialog :title="'产品能力模型 - '+productDetail.productKey" :visible.sync="productDetailVisible" width="800px" @closed="capProps=[];capEvents=[];capCommands=[]">
+  <el-tabs>
+    <el-tab-pane label="属性">
+      <div style="margin-bottom:10px"><el-button size="mini" type="primary" @click="addCapProp">+ 新增属性</el-button></div>
+      <el-table :data="productDetail.properties||[]" border size="small"><el-table-column prop="propertyName" label="属性标识" width="130"></el-table-column><el-table-column prop="propertyAlias" label="属性别名" width="120"></el-table-column><el-table-column prop="dataType" label="数据类型" width="90"></el-table-column><el-table-column prop="unit" label="单位" width="70"></el-table-column><el-table-column prop="description" label="描述" show-overflow-tooltip></el-table-column><el-table-column label="操作" width="130"><template slot-scope="s"><el-button size="mini" type="warning" @click="editCapProp(s.row)">编辑</el-button><el-button size="mini" type="danger" @click="deleteCapProp(s.row.id)">删除</el-button></template></el-table-column></el-table>
+    </el-tab-pane>
+    <el-tab-pane label="事件">
+      <div style="margin-bottom:10px"><el-button size="mini" type="primary" @click="addCapEvent">+ 新增事件</el-button></div>
+      <el-table :data="productDetail.events||[]" border size="small"><el-table-column prop="eventName" label="事件标识" width="130"></el-table-column><el-table-column prop="eventAlias" label="事件别名" width="120"></el-table-column><el-table-column prop="eventType" label="事件类型" width="90"></el-table-column><el-table-column prop="description" label="描述" show-overflow-tooltip></el-table-column><el-table-column label="操作" width="130"><template slot-scope="s"><el-button size="mini" type="warning" @click="editCapEvent(s.row)">编辑</el-button><el-button size="mini" type="danger" @click="deleteCapEvent(s.row.id)">删除</el-button></template></el-table-column></el-table>
+    </el-tab-pane>
+    <el-tab-pane label="指令">
+      <div style="margin-bottom:10px"><el-button size="mini" type="primary" @click="addCapCmd">+ 新增指令</el-button></div>
+      <el-table :data="productDetail.commands||[]" border size="small"><el-table-column prop="commandName" label="指令标识" width="130"></el-table-column><el-table-column prop="commandAlias" label="指令别名" width="120"></el-table-column><el-table-column label="异步" width="70"><template slot-scope="s"><span :class="'tag tag-'+(s.row.async?'active':'draft')">{{s.row.async?'是':'否'}}</span></template></el-table-column><el-table-column prop="description" label="描述" show-overflow-tooltip></el-table-column><el-table-column label="操作" width="130"><template slot-scope="s"><el-button size="mini" type="warning" @click="editCapCmd(s.row)">编辑</el-button><el-button size="mini" type="danger" @click="deleteCapCmd(s.row.id)">删除</el-button></template></el-table-column></el-table>
+    </el-tab-pane>
+  </el-tabs>
+</el-dialog>
+
+<el-dialog :title="capEditMode?'编辑属性':'新增属性'" :visible.sync="capPropDialogVisible" width="480px" append-to-body>
+  <el-form :model="capPropForm" label-width="90px" size="small"><el-form-item label="属性标识"><el-input v-model="capPropForm.propertyName" placeholder="如 temperature"></el-input></el-form-item><el-form-item label="属性别名"><el-input v-model="capPropForm.propertyAlias" placeholder="如 温度"></el-input></el-form-item><el-form-item label="数据类型"><el-select v-model="capPropForm.dataType" style="width:100%"><el-option v-for="t in ['INTEGER','FLOAT','STRING','BOOLEAN']" :key="t" :label="t" :value="t"></el-option></el-select></el-form-item><el-form-item label="单位"><el-input v-model="capPropForm.unit" placeholder="如 ℃"></el-input></el-form-item><el-form-item label="描述"><el-input v-model="capPropForm.description" placeholder="属性描述"></el-input></el-form-item></el-form>
+  <span slot="footer"><el-button @click="capPropDialogVisible=false">取消</el-button><el-button type="primary" @click="saveCapProp">保存</el-button></span>
+</el-dialog>
+
+<el-dialog :title="capEditMode?'编辑事件':'新增事件'" :visible.sync="capEventDialogVisible" width="480px" append-to-body>
+  <el-form :model="capEventForm" label-width="90px" size="small"><el-form-item label="事件标识"><el-input v-model="capEventForm.eventName" placeholder="如 over_temp"></el-input></el-form-item><el-form-item label="事件别名"><el-input v-model="capEventForm.eventAlias" placeholder="如 超温告警"></el-input></el-form-item><el-form-item label="事件类型"><el-select v-model="capEventForm.eventType" style="width:100%"><el-option v-for="t in ['INFO','WARN','ERROR','FATAL']" :key="t" :label="t" :value="t"></el-option></el-select></el-form-item><el-form-item label="描述"><el-input v-model="capEventForm.description" placeholder="事件描述"></el-input></el-form-item></el-form>
+  <span slot="footer"><el-button @click="capEventDialogVisible=false">取消</el-button><el-button type="primary" @click="saveCapEvent">保存</el-button></span>
+</el-dialog>
+
+<el-dialog :title="capEditMode?'编辑指令':'新增指令'" :visible.sync="capCmdDialogVisible" width="480px" append-to-body>
+  <el-form :model="capCmdForm" label-width="90px" size="small"><el-form-item label="指令标识"><el-input v-model="capCmdForm.commandName" placeholder="如 restart"></el-input></el-form-item><el-form-item label="指令别名"><el-input v-model="capCmdForm.commandAlias" placeholder="如 设备重启"></el-input></el-form-item><el-form-item label="是否异步"><el-switch v-model="capCmdForm.async" active-text="是" inactive-text="否"></el-switch></el-form-item><el-form-item label="描述"><el-input v-model="capCmdForm.description" placeholder="指令描述"></el-input></el-form-item></el-form>
+  <span slot="footer"><el-button @click="capCmdDialogVisible=false">取消</el-button><el-button type="primary" @click="saveCapCmd">保存</el-button></span>
+</el-dialog>
+
+<el-dialog title="创建产品" :visible.sync="showCreateProductDialog" width="520px" @closed="createProductForm={productKey:'',productName:'',manufacturer:'',deviceType:'SENSOR',protocol:'MQTT',description:''}">
+  <el-form :model="createProductForm" label-width="90px" size="small"><el-form-item label="产品标识"><el-input v-model="createProductForm.productKey" placeholder="如 SENSOR-TH-002"></el-input></el-form-item><el-form-item label="产品名称"><el-input v-model="createProductForm.productName" placeholder="如 温湿度传感器V2"></el-input></el-form-item><el-form-item label="厂商"><el-input v-model="createProductForm.manufacturer" placeholder="如 汉威科技"></el-input></el-form-item><el-form-item label="设备类型"><el-select v-model="createProductForm.deviceType" style="width:100%"><el-option label="传感器 SENSOR" value="SENSOR"></el-option><el-option label="网关 GATEWAY" value="GATEWAY"></el-option><el-option label="控制器 CONTROLLER" value="CONTROLLER"></el-option><el-option label="消费电子 CONSUMER" value="CONSUMER"></el-option></el-select></el-form-item><el-form-item label="通信协议"><el-select v-model="createProductForm.protocol" style="width:100%"><el-option label="MQTT" value="MQTT"></el-option><el-option label="HTTP" value="HTTP"></el-option></el-select></el-form-item><el-form-item label="描述"><el-input v-model="createProductForm.description" type="textarea" :rows="2" placeholder="产品描述"></el-input></el-form-item></el-form>
+  <span slot="footer"><el-button @click="showCreateProductDialog=false">取消</el-button><el-button type="primary" @click="doCreateProduct">确认创建</el-button></span>
+</el-dialog>
+
+<el-dialog title="编辑产品" :visible.sync="showEditProductDialog" width="520px">
+  <el-form :model="editProductForm" label-width="90px" size="small"><el-form-item label="产品标识"><el-input v-model="editProductForm.productKey" disabled></el-input></el-form-item><el-form-item label="产品名称"><el-input v-model="editProductForm.productName"></el-input></el-form-item><el-form-item label="厂商"><el-input v-model="editProductForm.manufacturer"></el-input></el-form-item><el-form-item label="设备类型"><el-select v-model="editProductForm.deviceType" style="width:100%"><el-option label="传感器 SENSOR" value="SENSOR"></el-option><el-option label="网关 GATEWAY" value="GATEWAY"></el-option><el-option label="控制器 CONTROLLER" value="CONTROLLER"></el-option><el-option label="消费电子 CONSUMER" value="CONSUMER"></el-option></el-select></el-form-item><el-form-item label="通信协议"><el-select v-model="editProductForm.protocol" style="width:100%"><el-option label="MQTT" value="MQTT"></el-option><el-option label="HTTP" value="HTTP"></el-option></el-select></el-form-item><el-form-item label="描述"><el-input v-model="editProductForm.description" type="textarea" :rows="2"></el-input></el-form-item></el-form>
+  <span slot="footer"><el-button @click="showEditProductDialog=false">取消</el-button><el-button type="primary" @click="doUpdateProduct">保存修改</el-button></span>
+</el-dialog>
+
+<el-dialog title="上传固件" :visible.sync="showFirmwareDialog" width="500px" @closed="firmwareForm={productKey:'',version:'',fileName:'',fileSize:'',description:''}">
+  <el-form :model="firmwareForm" label-width="90px" size="small"><el-form-item label="适用产品"><el-select v-model="firmwareForm.productKey" style="width:100%" placeholder="请选择产品"><el-option v-for="p in products" :key="p" :label="p" :value="p"></el-option></el-select></el-form-item><el-form-item label="版本号"><el-input v-model="firmwareForm.version" placeholder="如 V2.1.0"></el-input></el-form-item><el-form-item label="文件名"><el-input v-model="firmwareForm.fileName" placeholder="如 SENSOR-TH_V2.1.0.bin"></el-input></el-form-item><el-form-item label="文件大小"><el-input v-model="firmwareForm.fileSize" placeholder="单位字节，如 524288"></el-input></el-form-item><el-form-item label="更新说明"><el-input v-model="firmwareForm.description" type="textarea" :rows="3" placeholder="固件更新内容说明"></el-input></el-form-item></el-form>
+  <span slot="footer"><el-button @click="showFirmwareDialog=false">取消</el-button><el-button type="primary" @click="doAddFirmware">确认上传</el-button></span>
+</el-dialog>
+</div>
+
+<script>
+var TOKEN_KEY='iot_token';
+var DEMO_TOKEN='iot-platform-demo-token-2024';
+var API=axios.create({baseURL:'http://localhost:8080/api'});
+API.interceptors.request.use(function(c){var t=localStorage.getItem(TOKEN_KEY);if(t)c.headers.Authorization='Bearer '+t;return c},function(e){return Promise.reject(e)});
+API.interceptors.response.use(function(r){return r},function(e){if(e.response&&e.response.status===401){localStorage.removeItem(TOKEN_KEY);location.reload()}return Promise.reject(e)});
+var charts={};
+
+new Vue({el:'#app',data:{
+  loggedIn:!!localStorage.getItem(TOKEN_KEY),loginUser:'admin',loginLoading:false,
+  loginForm:{username:'admin',password:'admin123'},
+  loginRules:{username:[{required:true,message:'请输入用户名',trigger:'blur'}],password:[{required:true,message:'请输入密码',trigger:'blur'}]},
+  sidebarCollapsed:false,currentMenu:'dashboard',lastUpdate:'',
+  stats:{totalDevices:0,onlineDevices:0,offlineDevices:0,onlineRate:0},recentAlerts:[],dashData:{},
+  devices:[],devFilter:{keyword:'',productKey:'',onlineStatus:null},devLoading:false,devicePage:{pageNum:1,pageSize:10,total:0},currentDevice:null,devDetailVisible:false,
+  products:['SENSOR-TH-001','ENERGY-MTR-001','FIN-ATM-001','CONSUMER-GW-001'],showRegDialog:false,regForm:{deviceName:'',productKey:'SENSOR-TH-001',deviceSn:'',location:''},
+  shadowDeviceId:'MOCK-SENSOR-0001',shadowData:{},shadowLoading:false,desiredInput:'',shadowDialogVisible:false,shadowDialogJson:{},
+  alerts:[],alertFilter:{handleStatus:''},alertPage:{pageNum:1,pageSize:10,total:0},
+  otaFirmware:[],otaTasks:[],otaStats:{upgraded:0,pending:0},
+  monitorDeviceId:'MOCK-SENSOR-0001',monitorProperty:'',monitorProps:[],telemetryData:[],telemetryDialogVisible:false,telemetryProperty:'',telemetryProps:[],telemetryDeviceId:'',
+  productList:[],productDetailVisible:false,productDetail:{},showCreateProductDialog:false,showEditProductDialog:false,createProductForm:{productKey:'',productName:'',manufacturer:'',deviceType:'SENSOR',protocol:'MQTT',description:''},editProductForm:{productKey:'',productName:'',manufacturer:'',deviceType:'SENSOR',protocol:'MQTT',description:''},capPropDialogVisible:false,capEventDialogVisible:false,capCmdDialogVisible:false,capEditMode:false,capPropForm:{propertyName:'',propertyAlias:'',dataType:'FLOAT',unit:'',description:''},capEventForm:{eventName:'',eventAlias:'',eventType:'INFO',description:''},capCmdForm:{commandName:'',commandAlias:'',async:false,description:''},showFirmwareDialog:false,firmwareForm:{productKey:'',version:'',fileName:'',fileSize:'',description:''}
+},
+computed:{pageTitle:function(){var m={dashboard:'工作台',devices:'设备管理',shadow:'设备影子',alerts:'告警中心',ota:'OTA升级',monitor:'运行监控',products:'产品管理'};return '智能物联设备管理平台 / '+m[this.currentMenu]}},
+methods:{
+  doLogin:function(){var self=this;this.$refs.loginForm.validate(function(valid){if(!valid)return;self.loginLoading=true;
+    API.post('/auth/login',self.loginForm).then(function(r){var d=r.data.data;localStorage.setItem(TOKEN_KEY,d.token);self.loggedIn=true;self.loginUser=d.realName||d.username;self.loginLoading=false;self.$nextTick(function(){self.loadDashboard();self.loadRecentAlerts();self.loadDevices();self.loadShadow()})}).catch(function(e){self.loginLoading=false;var msg=(e.response&&e.response.data&&e.response.data.message)||'用户名或密码错误';self.$message.error(msg)})})},
+  handleUserCmd:function(c){if(c==='logout'){localStorage.removeItem(TOKEN_KEY);this.loggedIn=false;this.loginForm={username:'admin',password:'admin123'}}},
+  switchMenu:function(m){this.currentMenu=m;var self=this;this.$nextTick(function(){if(m==='dashboard'){self.loadDashboard();self.loadRecentAlerts()}else if(m==='devices')self.loadDevices();else if(m==='shadow')self.loadShadow();else if(m==='alerts'){self.loadAlerts();self.loadAlertStats()}else if(m==='ota')self.loadOta();else if(m==='monitor'){self.renderMonitorCharts();self.loadMonitorProps()}else if(m==='products'){self.loadProducts()}})},
+  loadAlertStats:function(){var self=this;API.get('/alert/stats').then(function(r){var d=r.data.data||{};self.$nextTick(function(){self.drawAlertCharts(d.alertLevels,d.notifyRetry)})})},drawAlertCharts:function(al,re){if(!charts.alertLvl){charts.alertLvl=echarts.init(document.getElementById('alertLevelChart'));charts.notifySt=echarts.init(document.getElementById('notifyStatusChart'))}var ld=[];if(al){for(var k in al)ld.push({name:k.replace('P','')+'级',value:al[k]})}charts.alertLvl.setOption({tooltip:{trigger:'item'},color:['#f56c6c','#e6a23c','#409eff','#909399'],series:[{type:'pie',radius:'60%',data:ld}]});var rd=[{name:'重试中',value:0},{name:'已发送',value:0},{name:'失败',value:0}];if(re){rd[0].value=re.retrying||0;rd[1].value=re.sent||0;rd[2].value=re.failed||0}charts.notifySt.setOption({tooltip:{trigger:'item'},color:['#e6a23c','#67c23a','#f56c6c'],series:[{type:'pie',radius:'60%',data:rd}]})},formatJson:function(o){try{return JSON.stringify(o,null,2)}catch(e){return String(o)}},
+  loadDashboard:function(){var self=this;API.get('/device/dashboard').then(function(r){var d=r.data.data||r.data;self.stats.totalDevices=d.totalDevices||0;self.stats.onlineDevices=d.onlineDevices||0;self.stats.offlineDevices=d.offlineDevices||0;self.stats.onlineRate=d.onlineRate||0;self.dashData=d;self.lastUpdate=new Date().toLocaleTimeString();self.$nextTick(function(){self.renderDashCharts(d)})}).catch(function(e){console.error(e)})},
+  renderDashCharts:function(d){var t=charts;if(!t.dashType){t.dashType=echarts.init(document.getElementById('dashTypeChart'));t.dashOnline=echarts.init(document.getElementById('dashOnlineChart'))}var types=(d.deviceTypeDistribution||[]).map(function(x){return{name:x.product_key||x.productKey,value:x.count}});t.dashType.setOption({tooltip:{trigger:'item'},series:[{type:'pie',radius:['45%','75%'],itemStyle:{borderRadius:8,borderColor:'#fff',borderWidth:3},data:types}]});t.dashOnline.setOption({tooltip:{trigger:'axis'},grid:{left:40,right:20,top:20,bottom:24},xAxis:{type:'category',data:['总设备','在线','离线']},yAxis:{type:'value'},series:[{type:'bar',data:[d.totalDevices||0,d.onlineDevices||0,d.offlineDevices||0],itemStyle:{borderRadius:[4,4,0,0]},barMaxWidth:60,label:{show:true,position:'top'}}]})},
+  loadRecentAlerts:function(){var self=this;API.get('/alert/list',{params:{pageNum:1,pageSize:10}}).then(function(r){self.recentAlerts=r.data.data||[]})},
+  loadDevices:function(){this.devLoading=true;var self=this;var p={pageNum:this.devicePage.pageNum,pageSize:this.devicePage.pageSize};if(this.devFilter.keyword)p.keyword=this.devFilter.keyword;if(this.devFilter.productKey)p.productKey=this.devFilter.productKey;if(this.devFilter.onlineStatus!==null&&this.devFilter.onlineStatus!=='')p.onlineStatus=this.devFilter.onlineStatus;API.get('/device/list',{params:p}).then(function(r){var d=r.data.data;self.devices=d.list||[];self.devicePage.total=d.total||0}).catch(function(){self.devices=[]}).finally(function(){self.devLoading=false})},
+  showDevDetail:function(row){this.currentDevice=row;this.devDetailVisible=true},
+  showDevShadow:function(row){var self=this;API.get('/device/shadow/'+row.deviceSn).then(function(r){var d=r.data.data||{};self.shadowDialogJson={reported:JSON.stringify((d.state||{}).reported||{},null,2),desired:JSON.stringify((d.state||{}).desired||{},null,2)};self.shadowDialogVisible=true}).catch(function(){self.shadowDialogJson={reported:'{}',desired:'{}'};self.shadowDialogVisible=true})},
+  showDevTelemetry:function(row){this.telemetryDeviceId=row.deviceSn;this.telemetryProps=[];var self=this;API.get('/product/'+(row.productKey||'SENSOR-TH-001')+'/properties').then(function(r){self.telemetryProps=r.data.data||[];if(self.telemetryProps.length>0){self.telemetryProperty=self.telemetryProps[0].propertyName}else{self.telemetryProperty='temperature'}self.telemetryDialogVisible=true;self.$nextTick(function(){self.loadTelemetryDialog()})})},
+  doRegister:function(){var self=this;API.post('/device/register',this.regForm).then(function(){self.$message.success('注册成功');self.showRegDialog=false;self.regForm={deviceName:'',productKey:'SENSOR-TH-001',deviceSn:'',location:''};self.loadDevices()}).catch(function(e){self.$message.error(e.response?.data?.message||'注册失败')})},
+  loadShadow:function(){var self=this;this.shadowLoading=true;API.get('/device/shadow/'+this.shadowDeviceId).then(function(r){var d=r.data.data||{};self.shadowData=d;self.shadowData.state=d.state||{reported:{},desired:{}};self.shadowData.version=d.version||0}).catch(function(){self.shadowData={}}).finally(function(){self.shadowLoading=false})},
+  setDesired:function(){var self=this;var desired;try{desired=JSON.parse(this.desiredInput)}catch(e){this.$message.error('JSON格式错误');return}API.post('/shadow/desired/'+this.shadowDeviceId,desired).then(function(){self.$message.success('期望状态已下发');self.desiredInput='';self.loadShadow()}).catch(function(e){self.$message.error('下发失败')})},
+  loadAlerts:function(){var self=this;var p={pageNum:this.alertPage.pageNum,pageSize:this.alertPage.pageSize};if(this.alertFilter.handleStatus)p.handleStatus=this.alertFilter.handleStatus;API.get('/alert/list',{params:p}).then(function(r){var d=r.data.data||{};self.alerts=d.list||[];self.alertPage.total=d.total||0}).catch(function(){self.alerts=[];self.alertPage.total=0})},
+  loadOta:function(){var self=this;API.get('/ota/firmwares').then(function(r){self.otaFirmware=r.data.data||[]}).catch(function(){self.otaFirmware=[]});API.get('/ota/tasks').then(function(r){var d=r.data.data||[];self.otaTasks=d;var up=0,total=0;d.forEach(function(t){up+=(t.successCount||0);total+=(t.totalCount||0)});self.otaStats={upgraded:up,pending:total-up}}).catch(function(){self.otaTasks=[]})},
+  createOtaTask:function(fw){var self=this;API.post('/ota/task',{taskName:'Upgrade to '+fw.version,firmwareId:fw.id,productKey:fw.productKey,targetType:'ALL',grayPercent:10}).then(function(){self.$message.success('OTA任务已创建');self.loadOta()}).catch(function(e){self.$message.error(e.response?.data?.message||'Create failed')})},
+  advanceGray:function(task){var self=this;var tid=task.taskId||task.id;API.post('/ota/gray/'+tid).then(function(){self.$message.success('灰度已推进');self.loadOta()}).catch(function(e){self.$message.error('推进失败:'+(e.response?.data?.message||e.message))})},
+  addFirmware:function(){this.firmwareForm={productKey:this.products[0]||'',version:'',fileName:'',fileSize:'',description:''};this.showFirmwareDialog=true},
+doAddFirmware:function(){var self=this;if(!self.firmwareForm.productKey||!self.firmwareForm.version){self.$message.error('请填写适用产品和版本号');return}API.post('/ota/firmware',self.firmwareForm).then(function(){self.$message.success('固件上传成功');self.showFirmwareDialog=false;self.loadOta()}).catch(function(e){self.$message.error(e.response?.data?.message||'上传失败')})},
+  loadMonitorProps:function(){var self=this;API.get("/device/detail/"+this.monitorDeviceId).then(function(r){var pk=(r.data.data||{}).productKey||"SENSOR-TH-001";API.get("/product/"+pk+"/properties").then(function(r2){self.monitorProps=r2.data.data||[];if(self.monitorProps.length>0)self.monitorProperty=self.monitorProps[0].propertyName})})},loadTelemetry:function(){var self=this;self.$nextTick(function(){if(!charts.telemetry)charts.telemetry=echarts.init(document.getElementById('telemetryChart'));var params={limit:30};if(self.monitorProperty)params.property=self.monitorProperty;API.get('/device/telemetry/'+self.monitorDeviceId,{params:params}).then(function(r){var data=(r.data.data||[]).reverse();charts.telemetry.setOption({tooltip:{trigger:'axis'},grid:{left:50,right:20,top:20,bottom:24},xAxis:{type:'category',data:data.map(function(d,i){return 'T-'+(data.length-i)})},yAxis:{type:'value'},series:[{type:'line',data:data.map(function(d){return parseFloat(d.propertyValue)||0}),smooth:true,areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(64,158,255,0.3)'},{offset:1,color:'rgba(64,158,255,0.02)'}])}}]})}).catch(function(){})})},
+  loadTelemetryDialog:function(){var self=this;this.$nextTick(function(){var dom=document.getElementById('dialogTelemetryChart');if(!dom)return;if(!charts.dialogTelemetry)charts.dialogTelemetry=echarts.init(dom);var params={limit:30};if(this.telemetryProperty)params.property=this.telemetryProperty;API.get('/device/telemetry/'+this.telemetryDeviceId,{params:params}).then(function(r){var data=(r.data.data||[]).reverse();charts.dialogTelemetry.setOption({tooltip:{trigger:'axis'},grid:{left:50,right:20,top:20,bottom:24},xAxis:{type:'category',data:data.map(function(d,i){return 'T-'+(data.length-i)})},yAxis:{type:'value'},series:[{type:'line',data:data.map(function(d){return parseFloat(d.propertyValue)||0}),smooth:true,areaStyle:{}}]})}).catch(function(){})})},
+  renderMonitorCharts:function(){var self=this;this.$nextTick(function(){if(!charts.monType){charts.monType=echarts.init(document.getElementById('monitorTypeChart'));charts.monFirm=echarts.init(document.getElementById('monitorFirmChart'))}API.get('/device/dashboard').then(function(r){var d=r.data.data||r.data;var types=(d.deviceTypeDistribution||[]).map(function(x){return{name:x.product_key||x.productKey,value:x.count}});charts.monType.setOption({tooltip:{trigger:'item'},series:[{type:'pie',radius:'60%',data:types}]});var fw=(d.otaProgress||[]).map(function(x){return{name:x.firmware_version||x.firmwareVersion,value:x.count}});charts.monFirm.setOption({tooltip:{trigger:'axis'},xAxis:{type:'category',data:fw.map(function(f){return f.name})},yAxis:{type:'value'},series:[{type:'bar',data:fw.map(function(f){return f.value}),itemStyle:{borderRadius:[4,4,0,0]}}]})}).catch(function(){})})},
+  loadProducts:function(){var self=this;API.get('/product/list').then(function(r){var list=r.data.data||[];self.productList=list;self.products=list.map(function(p){return p.productKey});if(!self.productList.length)self.productList=[{productKey:'SENSOR-TH-001',productName:'温湿度传感器',manufacturer:'汉威科技',deviceType:'SENSOR',protocol:'MQTT',description:'工业级温湿度传感器，支持-40~125℃宽温范围'},{productKey:'ENERGY-MTR-001',productName:'智能能源采集器',manufacturer:'汉威科技',deviceType:'CONTROLLER',protocol:'MQTT',description:'三相智能采集终端，支持电压/电流/功率监测'},{productKey:'FIN-ATM-001',productName:'金融自助终端',manufacturer:'恒银金融科技',deviceType:'CONSUMER',protocol:'HTTP',description:'多功能金融自助终端，支持存取款/查询/转账'},{productKey:'CONSUMER-GW-001',productName:'消费电子网关',manufacturer:'汉威科技',deviceType:'GATEWAY',protocol:'MQTT',description:'智能家居网关，支持Zigbee/WiFi设备接入'}]})},
+  viewProduct:function(p){var self=this;self.productDetailVisible=true;self.productDetail={productKey:p.productKey,productName:p.productName};API.get('/product/'+p.productKey+'/properties').then(function(r){self.$set(self.productDetail,'properties',r.data.data||[])});API.get('/product/'+p.productKey+'/events').then(function(r){self.$set(self.productDetail,'events',r.data.data||[])});API.get('/product/'+p.productKey+'/commands').then(function(r){self.$set(self.productDetail,'commands',r.data.data||[])})},
+showEditProduct:function(p){this.editProductForm={productKey:p.productKey,productName:p.productName,manufacturer:p.manufacturer||'',deviceType:p.deviceType||'SENSOR',protocol:p.protocol||'MQTT',description:p.description||''};this.showEditProductDialog=true},
+doCreateProduct:function(){var self=this;API.post('/product',this.createProductForm).then(function(){self.$message.success('产品创建成功');self.showCreateProductDialog=false;self.createProductForm={productKey:'',productName:'',manufacturer:'',deviceType:'SENSOR',protocol:'MQTT',description:''};self.loadProducts()}).catch(function(e){self.$message.error(e.response?.data?.message||'创建失败')})},
+doUpdateProduct:function(){var self=this;API.put('/product',this.editProductForm).then(function(){self.$message.success('产品更新成功');self.showEditProductDialog=false;self.loadProducts()}).catch(function(e){self.$message.error(e.response?.data?.message||'更新失败')})},
+deleteProduct:function(pk){var self=this;this.$confirm('确定要删除产品 '+pk+' 及其全部能力模型（属性/事件/指令）吗？','确认删除',{confirmButtonText:'确定',cancelButtonText:'取消',type:'warning'}).then(function(){API.delete('/product/'+pk).then(function(){self.$message.success('产品已删除');self.loadProducts()}).catch(function(e){self.$message.error(e.response?.data?.message||'删除失败')})}).catch(function(){})},
+reloadCaps:function(){var self=this;var pk=self.productDetail.productKey;API.get('/product/'+pk+'/properties').then(function(r){self.$set(self.productDetail,'properties',r.data.data||[])});API.get('/product/'+pk+'/events').then(function(r){self.$set(self.productDetail,'events',r.data.data||[])});API.get('/product/'+pk+'/commands').then(function(r){self.$set(self.productDetail,'commands',r.data.data||[])})},
+addCapProp:function(){this.capEditMode=false;this.capPropForm={propertyName:'',propertyAlias:'',dataType:'FLOAT',unit:'',description:''};this.capPropDialogVisible=true},
+editCapProp:function(row){this.capEditMode=true;this.capPropForm={id:row.id,propertyName:row.propertyName,propertyAlias:row.propertyAlias,dataType:row.dataType||'FLOAT',unit:row.unit||'',description:row.description||''};this.capPropDialogVisible=true},
+deleteCapProp:function(id){var self=this;this.$confirm('确定删除此属性？','确认',{type:'warning'}).then(function(){API.delete('/product/property/'+id).then(function(){self.$message.success('已删除');self.reloadCaps()}).catch(function(e){self.$message.error('删除失败')})}).catch(function(){})},
+saveCapProp:function(){var self=this;var data={productKey:self.productDetail.productKey,propertyName:self.capPropForm.propertyName,propertyAlias:self.capPropForm.propertyAlias,dataType:self.capPropForm.dataType,unit:self.capPropForm.unit,description:self.capPropForm.description};if(self.capEditMode){data.id=self.capPropForm.id;API.put('/product/property',data).then(function(){self.$message.success('已更新');self.capPropDialogVisible=false;self.reloadCaps()}).catch(function(e){self.$message.error(e.response?.data?.message||'更新失败')})}else{API.post('/product/property',data).then(function(){self.$message.success('已新增');self.capPropDialogVisible=false;self.reloadCaps()}).catch(function(e){self.$message.error(e.response?.data?.message||'新增失败')})}},
+addCapEvent:function(){this.capEditMode=false;this.capEventForm={eventName:'',eventAlias:'',eventType:'INFO',description:''};this.capEventDialogVisible=true},
+editCapEvent:function(row){this.capEditMode=true;this.capEventForm={id:row.id,eventName:row.eventName,eventAlias:row.eventAlias,eventType:row.eventType||'INFO',description:row.description||''};this.capEventDialogVisible=true},
+deleteCapEvent:function(id){var self=this;this.$confirm('确定删除此事件？','确认',{type:'warning'}).then(function(){API.delete('/product/event/'+id).then(function(){self.$message.success('已删除');self.reloadCaps()}).catch(function(e){self.$message.error('删除失败')})}).catch(function(){})},
+saveCapEvent:function(){var self=this;var data={productKey:self.productDetail.productKey,eventName:self.capEventForm.eventName,eventAlias:self.capEventForm.eventAlias,eventType:self.capEventForm.eventType,description:self.capEventForm.description};if(self.capEditMode){data.id=self.capEventForm.id;API.put('/product/event',data).then(function(){self.$message.success('已更新');self.capEventDialogVisible=false;self.reloadCaps()}).catch(function(e){self.$message.error(e.response?.data?.message||'更新失败')})}else{API.post('/product/event',data).then(function(){self.$message.success('已新增');self.capEventDialogVisible=false;self.reloadCaps()}).catch(function(e){self.$message.error(e.response?.data?.message||'新增失败')})}},
+addCapCmd:function(){this.capEditMode=false;this.capCmdForm={commandName:'',commandAlias:'',async:false,description:''};this.capCmdDialogVisible=true},
+editCapCmd:function(row){this.capEditMode=true;this.capCmdForm={id:row.id,commandName:row.commandName,commandAlias:row.commandAlias,async:row.async||false,description:row.description||''};this.capCmdDialogVisible=true},
+deleteCapCmd:function(id){var self=this;this.$confirm('确定删除此指令？','确认',{type:'warning'}).then(function(){API.delete('/product/command/'+id).then(function(){self.$message.success('已删除');self.reloadCaps()}).catch(function(e){self.$message.error('删除失败')})}).catch(function(){})},
+saveCapCmd:function(){var self=this;var data={productKey:self.productDetail.productKey,commandName:self.capCmdForm.commandName,commandAlias:self.capCmdForm.commandAlias,async:self.capCmdForm.async,description:self.capCmdForm.description};if(self.capEditMode){data.id=self.capCmdForm.id;API.put('/product/command',data).then(function(){self.$message.success('已更新');self.capCmdDialogVisible=false;self.reloadCaps()}).catch(function(e){self.$message.error(e.response?.data?.message||'更新失败')})}else{API.post('/product/command',data).then(function(){self.$message.success('已新增');self.capCmdDialogVisible=false;self.reloadCaps()}).catch(function(e){self.$message.error(e.response?.data?.message||'新增失败')})}}
+},
+mounted:function(){if(!this.loggedIn)return;var self=this;this.loadDashboard();this.loadRecentAlerts();this.loadDevices();this.loadShadow();setInterval(function(){if(self.currentMenu==='dashboard')self.loadDashboard()},30000);window.addEventListener('resize',function(){Object.values(charts).forEach(function(c){if(c&&c.resize)c.resize()})})}})</script></body></html>
