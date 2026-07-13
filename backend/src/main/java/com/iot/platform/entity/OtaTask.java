@@ -12,7 +12,7 @@ public class OtaTask {
     private Long id;
     private String taskId;
     private String taskName;
-    private Long firmwareId;
+    private String firmwareId;
     private String productKey;
     private String targetType;
     private String targetValue;
