@@ -1,0 +1,52 @@
+# ============================================================
+# ECS轻量部署 — 内存限制1.8GB，只跑3个Java服务
+# MySQL/Redis/RabbitMQ 需要外部提供或单独安装
+# ============================================================
+version: '3.8'
+
+services:
+  backend:
+    image: eclipse-temurin:8-jre
+    container_name: iot-backend
+    restart: always
+    working_dir: /app
+    command: java -Xmx256m -Dfile.encoding=UTF-8 -jar /app/iot-platform-service-1.0.0-SNAPSHOT.jar
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./backend-jar/iot-platform-service-1.0.0-SNAPSHOT.jar:/app/iot-platform-service-1.0.0-SNAPSHOT.jar
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/iot_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_REDIS_HOST: host.docker.internal
+      SPRING_RABBITMQ_HOST: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 512m
+
+  notification:
+    image: eclipse-temurin:8-jre
+    container_name: iot-notification
+    restart: always
+    working_dir: /app
+    command: java -Xmx128m -Dfile.encoding=UTF-8 -jar /app/iot-notification-stub-1.0.0-SNAPSHOT.jar
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./notification-jar/iot-notification-stub-1.0.0-SNAPSHOT.jar:/app/iot-notification-stub-1.0.0-SNAPSHOT.jar
+    mem_limit: 256m
+
+  gateway:
+    image: eclipse-temurin:8-jre
+    container_name: iot-gateway
+    restart: always
+    working_dir: /app
+    command: java -Xmx128m -Dfile.encoding=UTF-8 -jar /app/iot-gateway-1.0.0-SNAPSHOT.jar
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./gateway-jar/iot-gateway-1.0.0-SNAPSHOT.jar:/app/iot-gateway-1.0.0-SNAPSHOT.jar
+    environment:
+      SPRING_REDIS_HOST: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 256m

@@ -38,3 +38,4 @@ push-now.bat
 push-to-github.bat
 fix-ci.bat
 .git-credentials
+update_github.py

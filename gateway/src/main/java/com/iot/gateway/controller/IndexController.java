@@ -3,6 +3,7 @@ package com.iot.gateway.controller;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.MediaType;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
@@ -26,7 +27,7 @@ public class IndexController {
         return Mono.just("");
     }
 
-    @GetMapping("/")
+    @GetMapping(value = "/", produces = "text/html;charset=UTF-8")
     public Mono<String> index() {
         if (cachedHtml != null) {
             return Mono.just(cachedHtml);
