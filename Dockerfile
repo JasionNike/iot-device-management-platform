@@ -1,7 +1,7 @@
 # ============================================================
 # 智能物联设备管理平台 — Backend Dockerfile
 # ============================================================
-FROM openjdk:8-jre-slim
+FROM eclipse-temurin:8-jre
 
 LABEL maintainer="wangheng <535698505@qq.com>"
 LABEL description="IoT Device Management Platform Backend"
