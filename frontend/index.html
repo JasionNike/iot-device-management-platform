@@ -227,7 +227,7 @@ body{font-family:'Microsoft YaHei',sans-serif;background:#f0f2f5}
     <div class="stat-item"><div class="stat-icon" style="background:#fce4ec;color:#c62828">&#128268;</div><div class="stat-info"><div class="val">{{dashData.offlineDevices||0}}</div><div class="label">离线设备</div></div></div>
   </div>
   <div class="toolbar">
-    <el-select v-model="monitorDeviceId" filterable remote :remote-method="searchMonitorDevices" @change="onMonitorDeviceChange" placeholder="搜索设备SN或名称" size="small" style="width:260px" clearable><el-option v-for="d in monitorDeviceOptions" :key="d.deviceSn" :label="d.deviceSn+' | '+d.productKey" :value="d.deviceSn"></el-option></el-select>
+    <el-select v-model="monitorDeviceId" filterable remote :remote-method="searchMonitorDevices" @change="onMonitorDeviceChange" placeholder="搜索设备SN或名称" size="small" style="width:260px" clearable><el-option v-for="d in monitorDeviceOptions" :key="d.deviceId" :label="d.deviceSn+' | '+d.productKey" :value="d.deviceId"></el-option></el-select>
     <el-select v-model="monitorProperty" size="small" style="width:150px" @change="loadTelemetry"><el-option v-for="p in monitorProps" :key="p.propertyName" :label="p.propertyAlias+' ('+p.unit+')'" :value="p.propertyName"></el-option></el-select>
     <el-select v-model="monitorLimit" size="small" style="width:100px" @change="loadTelemetry"><el-option label="30条" :value="30"></el-option><el-option label="60条" :value="60"></el-option><el-option label="120条" :value="120"></el-option></el-select>
     <el-button size="small" type="primary" @click="loadTelemetry">查询</el-button>
