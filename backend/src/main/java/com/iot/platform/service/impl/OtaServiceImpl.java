@@ -2,6 +2,7 @@ package com.iot.platform.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iot.platform.entity.OtaRecord;
 import com.iot.platform.entity.OtaTask;
 import com.iot.platform.mapper.OtaRecordMapper;
@@ -11,8 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * OTA升级服务实现类
@@ -152,5 +152,17 @@ public class OtaServiceImpl implements OtaService {
         return otaTaskMapper.selectList(
                 new LambdaQueryWrapper<OtaTask>()
                         .orderByDesc(OtaTask::getCreateTime));
+    }
+
+    @Override
+    public Map<String, Object> listTasks(int pageNum, int pageSize) {
+        Page<OtaTask> page = new Page<>(pageNum, pageSize);
+        Page<OtaTask> result = otaTaskMapper.selectPage(page,
+                new LambdaQueryWrapper<OtaTask>()
+                        .orderByDesc(OtaTask::getCreateTime));
+        Map<String, Object> map = new HashMap<>();
+        map.put("list", result.getRecords());
+        map.put("total", result.getTotal());
+        return map;
     }
 }

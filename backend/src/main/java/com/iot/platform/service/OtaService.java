@@ -4,6 +4,7 @@ import com.iot.platform.entity.OtaTask;
 import com.iot.platform.entity.OtaRecord;
 
 import java.util.List;
+import java.util.Map;
 
 public interface OtaService {
     /** 创建OTA升级任务 */
@@ -20,4 +21,7 @@ public interface OtaService {
 
     /** 查询任务列表 */
     List<OtaTask> listTasks();
+
+    /** 查询任务列表（分页） */
+    Map<String, Object> listTasks(int pageNum, int pageSize);
 }

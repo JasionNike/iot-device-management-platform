@@ -42,6 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     /** 无需认证的白名单路径 */
     private static final List<String> WHITE_LIST = Arrays.asList(
             "/api/auth/login",
+            "/api/auth/captcha",
             "/api/auth/register",
             "/actuator/health",
             "/api/device/dashboard"  // 大盘允许匿名访问

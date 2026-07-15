@@ -6,6 +6,7 @@ import com.iot.platform.entity.ProductEvent;
 import com.iot.platform.entity.ProductCommand;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 产品能力模型服务接口
@@ -29,6 +30,7 @@ public interface ProductService {
     void deleteProduct(String productKey);
     Product getProduct(String productKey);
     List<Product> listProducts();
+    Map<String, Object> listProducts(int pageNum, int pageSize);
 
     // ========== 属性管理 ==========
     ProductProperty addProperty(ProductProperty property);

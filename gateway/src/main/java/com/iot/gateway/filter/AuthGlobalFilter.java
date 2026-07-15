@@ -39,6 +39,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     /** 白名单路径 — 无需认证 */
     private static final List<String> WHITE_LIST = Arrays.asList(
         "/api/auth/login",           // 登录接口
+        "/api/auth/captcha",         // 验证码
         "/api/device/dashboard",     // 统计大盘
         "/api/device/register",      // 设备注册（MQTT自动注册）
         "/actuator/health",          // 健康检查

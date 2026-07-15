@@ -2,6 +2,8 @@
 -- 智能物联设备管理平台 - 数据库初始化脚本
 -- 12张业务表 + 初始数据
 -- ============================================
+SET NAMES utf8mb4;
+-- ============================================
 
 CREATE DATABASE IF NOT EXISTS iot_platform
     DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_general_ci;

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 产品能力模型控制器
@@ -54,8 +55,10 @@ public class ProductController {
     }
 
     @GetMapping("/list")
-    public Result<List<Product>> listProducts() {
-        return Result.success(productService.listProducts());
+    public Result<Map<String, Object>> listProducts(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return Result.success(productService.listProducts(pageNum, pageSize));
     }
 
     // ========== 属性管理 ==========

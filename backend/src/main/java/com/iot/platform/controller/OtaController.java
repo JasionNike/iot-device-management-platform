@@ -1,6 +1,7 @@
 package com.iot.platform.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iot.platform.common.Result;
 import com.iot.platform.entity.Firmware;
 import com.iot.platform.entity.OtaRecord;
@@ -11,9 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * OTA升级控制器
@@ -28,11 +27,18 @@ public class OtaController {
     private final OtaService otaService;
     private final FirmwareMapper firmwareMapper;
 
-    /** 固件列表 */
+    /** 固件列表（分页） */
     @GetMapping("/firmwares")
-    public Result<List<Firmware>> firmwares() {
-        return Result.success(firmwareMapper.selectList(
-            new LambdaQueryWrapper<Firmware>().orderByDesc(Firmware::getUploadTime)));
+    public Result<Map<String, Object>> firmwares(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        Page<Firmware> page = new Page<>(pageNum, pageSize);
+        Page<Firmware> result = firmwareMapper.selectPage(page,
+            new LambdaQueryWrapper<Firmware>().orderByDesc(Firmware::getUploadTime));
+        Map<String, Object> map = new HashMap<>();
+        map.put("list", result.getRecords());
+        map.put("total", result.getTotal());
+        return Result.success(map);
     }
 
     /** 上传固件（演示环境为JSON表单提交，生产环境改为Multipart+对象存储） */
@@ -78,9 +84,11 @@ public class OtaController {
         return Result.success(otaService.getDeviceOtaRecords(deviceId));
     }
 
-    /** 任务列表 */
+    /** 任务列表（分页） */
     @GetMapping("/tasks")
-    public Result<List<OtaTask>> tasks() {
-        return Result.success(otaService.listTasks());
+    public Result<Map<String, Object>> tasks(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return Result.success(otaService.listTasks(pageNum, pageSize));
     }
 }

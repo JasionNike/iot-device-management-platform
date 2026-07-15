@@ -1,111 +1,79 @@
-version: '3.8'
+version: '3.3'
 
 # ============================================================
 # 智能物联设备管理平台 — Docker Compose 容器化部署
-# ============================================================
-# 启动: docker-compose up -d
-# 停止: docker-compose down
-# 日志: docker-compose logs -f backend
+# 安全加固：MySQL/Redis/RabbitMQ不暴露公网端口
 # ============================================================
 
 services:
-  # ========== MySQL 8.0 ==========
   mysql:
     image: mysql:8.0
     container_name: iot-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_ROOT_PASSWORD: IoTPlatform2026
       MYSQL_DATABASE: iot_platform
+    # 仅监听本地回环（通过SSH隧道连接，不暴露公网）
     ports:
-      - "3306:3306"
+      - '127.0.0.1:3306:3306'
     volumes:
       - mysql-data:/var/lib/mysql
       - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./sql/data.sql:/docker-entrypoint-initdb.d/02-data.sql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci --innodb-buffer-pool-size=64M --performance-schema=OFF
 
-  # ========== Redis 5.0 ==========
   redis:
-    image: redis:5.0-alpine
+    image: redis:7-alpine
     container_name: iot-redis
     restart: always
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save '' --requirepass RedisIot2026
 
-  # ========== RabbitMQ 3.12 ==========
   rabbitmq:
-    image: rabbitmq:3.12-management-alpine
+    image: rabbitmq:3.12-alpine
     container_name: iot-rabbitmq
     restart: always
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      RABBITMQ_DEFAULT_USER: iot_app
+      RABBITMQ_DEFAULT_PASS: RabbitIot2026
 
-  # ========== IoT Backend (:8081) ==========
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: eclipse-temurin:8-jre
     container_name: iot-backend
     restart: always
-    ports:
-      - "8081:8081"
+    working_dir: /app
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/iot_platform?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_PASSWORD: IoTPlatform2026
       SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PASSWORD: RedisIot2026
       SPRING_RABBITMQ_HOST: rabbitmq
-      JASYPT_ENCRYPTOR_PASSWORD: iot-platform-jasypt-key
+      SPRING_RABBITMQ_USERNAME: iot_app
+      SPRING_RABBITMQ_PASSWORD: RabbitIot2026
+      JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+    command: java -Xmx384m -jar /app/iot-platform-service-1.0.0-SNAPSHOT.jar --spring.flyway.enabled=false
+    # 后端端口仅Docker内部网络访问，不暴露公网
+    volumes:
+      - ./iot-platform-service-1.0.0-SNAPSHOT.jar:/app/iot-platform-service-1.0.0-SNAPSHOT.jar
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      - mysql
+      - redis
+      - rabbitmq
 
-  # ========== Notification Stub (:8082) ==========
-  notification:
-    build:
-      context: ./mock-stubs
-      dockerfile: ../Dockerfile.notification
-    container_name: iot-notification
-    restart: always
-    ports:
-      - "8082:8082"
-    depends_on:
-      - backend
-
-  # ========== Gateway (:8080) ==========
   gateway:
-    build:
-      context: ./gateway
-      dockerfile: ../Dockerfile.gateway
+    image: eclipse-temurin:8-jre
     container_name: iot-gateway
     restart: always
-    ports:
-      - "8080:8080"
+    working_dir: /app
     environment:
       SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PASSWORD: RedisIot2026
+      JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+    command: java -Xmx128m -jar /app/iot-gateway-1.0.0-SNAPSHOT.jar --spring.config.additional-location=file:/app/config/app.yml
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./iot-gateway-1.0.0-SNAPSHOT.jar:/app/iot-gateway-1.0.0-SNAPSHOT.jar
+      - ./gateway-config.yml:/app/config/app.yml
     depends_on:
       - backend
 

@@ -1,6 +1,7 @@
 package com.iot.platform.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.iot.platform.common.BusinessException;
 import com.iot.platform.entity.*;
 import com.iot.platform.mapper.*;
@@ -11,8 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * 产品能力模型服务实现
@@ -133,6 +133,17 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public List<Product> listProducts() {
         return productMapper.selectList(null);
+    }
+
+    @Override
+    public Map<String, Object> listProducts(int pageNum, int pageSize) {
+        Page<Product> page = new Page<>(pageNum, pageSize);
+        Page<Product> result = productMapper.selectPage(page,
+                new LambdaQueryWrapper<Product>().orderByAsc(Product::getProductKey));
+        Map<String, Object> map = new HashMap<>();
+        map.put("list", result.getRecords());
+        map.put("total", result.getTotal());
+        return map;
     }
 
     // ========== 属性管理 ==========

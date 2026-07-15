@@ -1,5 +1,6 @@
 package com.iot.platform.controller;
 
+import com.iot.platform.common.CaptchaUtil;
 import com.iot.platform.common.Result;
 import com.iot.platform.dto.LoginRequest;
 import com.iot.platform.dto.LoginResponse;
@@ -16,6 +17,9 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -48,7 +52,21 @@ public class AuthController {
     @Value("${iot.login.lock-minutes:5}")
     private int lockMinutes;
 
-    /** 用户登录 — 校验凭证 → 签发JWT */
+    /** 获取图形验证码 — 生成4位验证码图片，返回Base64 + captchaKey */
+    @GetMapping("/captcha")
+    public Result<Map<String, String>> captcha() {
+        CaptchaUtil.CaptchaResult cr = CaptchaUtil.generate();
+        String captchaKey = UUID.randomUUID().toString().replace("-", "");
+        // 存入Redis，5分钟过期
+        redisTemplate.opsForValue().set("captcha:" + captchaKey, cr.getCode(), 5, TimeUnit.MINUTES);
+        Map<String, String> result = new HashMap<>();
+        result.put("captchaKey", captchaKey);
+        result.put("captchaImage", cr.getBase64Image());
+        log.info("验证码已生成: key={}, code={}", captchaKey, cr.getCode());
+        return Result.success(result);
+    }
+
+    /** 用户登录 — 校验凭证+验证码 → 签发JWT */
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         String clientIp = getClientIp();
@@ -63,7 +81,25 @@ public class AuthController {
             return Result.fail("登录过于频繁，请" + (ttl != null && ttl > 0 ? ttl + "秒" : lockMinutes + "分钟") + "后再试");
         }
 
-        // 2. 校验凭证
+        // 2. 验证码校验
+        if (request.getCaptchaKey() == null || request.getCaptchaKey().isEmpty()
+                || request.getCaptchaCode() == null || request.getCaptchaCode().isEmpty()) {
+            return Result.fail("请输入验证码");
+        }
+        String captchaRedisKey = "captcha:" + request.getCaptchaKey();
+        String storedCode = redisTemplate.opsForValue().get(captchaRedisKey);
+        if (storedCode == null) {
+            return Result.fail("验证码已过期，请点击刷新");
+        }
+        if (!storedCode.equalsIgnoreCase(request.getCaptchaCode().trim())) {
+            // 验证码错误后立即删除，防止暴力破解
+            redisTemplate.delete(captchaRedisKey);
+            return Result.fail("验证码错误");
+        }
+        // 验证码正确 → 立即删除（一次性使用）
+        redisTemplate.delete(captchaRedisKey);
+
+        // 3. 校验凭证
         User user = userMapper.selectByUsername(request.getUsername());
         if (user == null || !passwordEncoder.matches(request.getPassword(),
                 user.getPassword() != null ? user.getPassword() : "")) {
